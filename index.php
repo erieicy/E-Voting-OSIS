@@ -162,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOpen && ($_POST['action'] ?? '')
         <div class="closed-box">
           <h3>Pemungutan Suara Ditutup</h3>
           <p class="text-muted" style="font-size: 13px;">
-            Bilik suara saat ini sedang ditutup oleh panitia pemilihan.
+            Bilik suara saat ini sudah ditutup oleh panitia pemilihan.
           </p>
         </div>
       <?php else: ?>

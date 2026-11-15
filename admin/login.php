@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($username === '' || $password === '') {
             $error = 'Username dan password wajib diisi.';
         } else {
-            $stmt = $pdo->prepare('SELECT id, username, password, nama_lengkap FROM admin WHERE username = ? LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, password, nama_lengkap FROM admin WHERE BINARY username = ? LIMIT 1');
             $stmt->execute([$username]);
             $admin = $stmt->fetch();
 

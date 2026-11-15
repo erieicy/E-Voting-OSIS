@@ -141,7 +141,7 @@ if ($searchQuery !== '') {
 $whereSql = !empty($whereClauses) ? ('WHERE ' . implode(' AND ', $whereClauses)) : '';
 
 // Pagination
-$perPage     = 100;
+$perPage     = 10;
 $currentPage = max(1, (int)($_GET['page'] ?? 1));
 
 $stmtFilteredCount = $pdo->prepare("SELECT COUNT(*) FROM tokens {$whereSql}");
@@ -235,7 +235,7 @@ function render_token_rows(
 }
 
 /**
- * Merender footer pagination & tombol hapus massal token belum dipakai
+ * Merender footer pagination bernomor & tombol hapus massal token belum dipakai
  */
 function render_token_footer(
     int $currentPage,
@@ -248,24 +248,75 @@ function render_token_footer(
     if ($totalPages <= 1 && $countBelum <= 0) {
         return '';
     }
+
+    $buildUrl = static function (int $page) use ($statusFilter, $searchQuery): string {
+        return 'token.php?status=' . urlencode($statusFilter)
+            . '&q=' . urlencode($searchQuery)
+            . '&page=' . $page;
+    };
+
+    $maxVisible = 7;
+    if ($totalPages <= $maxVisible) {
+        $startPage = 1;
+        $endPage   = $totalPages;
+    } else {
+        $startPage = max(1, $currentPage - 3);
+        $endPage   = $startPage + $maxVisible - 1;
+        if ($endPage > $totalPages) {
+            $endPage   = $totalPages;
+            $startPage = max(1, $endPage - $maxVisible + 1);
+        }
+    }
+
     ob_start(); ?>
-    <div class="panel-header" style="border-top: 1px solid var(--border-color); border-bottom: none;">
-      <div class="filter-bar">
-        <?php if ($totalPages > 1): ?>
-          <span class="text-muted" style="font-size: 12px;">
+    <div class="panel-header token-footer-bar">
+      <?php if ($totalPages > 1): ?>
+        <nav class="pagination" aria-label="Navigasi Halaman Token">
+          <div class="pagination-controls">
+            <?php if ($currentPage > 1): ?>
+              <a href="<?= e($buildUrl($currentPage - 1)) ?>" class="btn btn-sm page-nav-btn" aria-label="Halaman Sebelumnya">&lsaquo; Sebelumnya</a>
+            <?php else: ?>
+              <span class="btn btn-sm page-nav-btn is-disabled" aria-disabled="true">&lsaquo; Sebelumnya</span>
+            <?php endif; ?>
+
+            <div class="pagination-pages">
+              <?php if ($startPage > 1): ?>
+                <a href="<?= e($buildUrl(1)) ?>" class="btn btn-sm page-num">1</a>
+                <?php if ($startPage > 2): ?>
+                  <span class="page-ellipsis" aria-hidden="true">&hellip;</span>
+                <?php endif; ?>
+              <?php endif; ?>
+
+              <?php for ($p = $startPage; $p <= $endPage; $p++): ?>
+                <?php if ($p === $currentPage): ?>
+                  <span class="btn btn-sm btn-primary page-num is-active" aria-current="page"><?= $p ?></span>
+                <?php else: ?>
+                  <a href="<?= e($buildUrl($p)) ?>" class="btn btn-sm page-num"><?= $p ?></a>
+                <?php endif; ?>
+              <?php endfor; ?>
+
+              <?php if ($endPage < $totalPages): ?>
+                <?php if ($endPage < $totalPages - 1): ?>
+                  <span class="page-ellipsis" aria-hidden="true">&hellip;</span>
+                <?php endif; ?>
+                <a href="<?= e($buildUrl($totalPages)) ?>" class="btn btn-sm page-num"><?= $totalPages ?></a>
+              <?php endif; ?>
+            </div>
+
+            <?php if ($currentPage < $totalPages): ?>
+              <a href="<?= e($buildUrl($currentPage + 1)) ?>" class="btn btn-sm page-nav-btn" aria-label="Halaman Berikutnya">Berikutnya &rsaquo;</a>
+            <?php else: ?>
+              <span class="btn btn-sm page-nav-btn is-disabled" aria-disabled="true">Berikutnya &rsaquo;</span>
+            <?php endif; ?>
+          </div>
+          <span class="pagination-info text-muted">
             Halaman <?= $currentPage ?> dari <?= $totalPages ?>
           </span>
-          <?php if ($currentPage > 1): ?>
-            <a href="token.php?status=<?= e($statusFilter) ?>&amp;q=<?= urlencode($searchQuery) ?>&amp;page=<?= $currentPage - 1 ?>" class="btn btn-sm">&larr; Sebelumnya</a>
-          <?php endif; ?>
-          <?php if ($currentPage < $totalPages): ?>
-            <a href="token.php?status=<?= e($statusFilter) ?>&amp;q=<?= urlencode($searchQuery) ?>&amp;page=<?= $currentPage + 1 ?>" class="btn btn-sm">Berikutnya &rarr;</a>
-          <?php endif; ?>
-        <?php endif; ?>
-      </div>
+        </nav>
+      <?php endif; ?>
 
       <?php if ($countBelum > 0): ?>
-        <form method="post" action="token.php">
+        <form method="post" action="token.php" class="token-delete-unused-form">
           <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
           <input type="hidden" name="action" value="delete_unused">
           <?= render_token_return_inputs($statusFilter, $searchQuery, $currentPage) ?>
@@ -357,7 +408,7 @@ if (isset($_GET['ajax'])) {
       <div class="page-header">
         <div>
           <h1>Manajemen &amp; Distribusi Token Suara</h1>
-          <p>Buat kode acak sekali pakai (One-Time Token) dan cetak lembar token siap gunting</p>
+          <p>Buat kode acak sekali pakai dan cetak lembar token siap gunting</p>
         </div>
         <div class="filter-bar">
           <a href="cetak_token.php?status=0" target="_blank" class="btn btn-primary">
@@ -377,7 +428,7 @@ if (isset($_GET['ajax'])) {
       <div class="panel">
         <div class="panel-header">
           <span>Generator Token Massal (Bulk Token Generator)</span>
-          <span class="text-muted" style="font-weight: 400; font-size: 12px;">6 Karakter Alfanumerik (Tanpa huruf O/0 dan I/1)</span>
+          <span class="text-muted" style="font-weight: 400; font-size: 12px;">6 Karakter Alfanumerik</span>
         </div>
         <div class="panel-body">
           <form method="post" action="token.php" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">

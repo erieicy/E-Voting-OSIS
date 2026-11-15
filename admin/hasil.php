@@ -83,7 +83,7 @@ function render_hasil_results_section(bool $isUnlocked, array $kandidatList, int
           <div class="locked-panel">
             <h3>Grafik Perolehan Suara Sedang Dikunci</h3>
             <p>
-              Fitur <strong>Lock Quick Count</strong> aktif untuk mencegah kebocoran tren suara selama proses pemilihan berlangsung. Klik tombol di bawah apabila pemungutan suara telah selesai dan perhitungan resmi dimulai.
+              Fitur <strong>Lock Quick Count</strong> aktif untuk mencegah kebocoran suara selama proses pemilihan berlangsung. Klik tombol di bawah apabila pemungutan suara telah selesai dan perhitungan resmi dimulai.
             </p>
             <form method="post" action="hasil.php">
               <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">

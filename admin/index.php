@@ -253,9 +253,9 @@ $adminLanUrl = $scheme . '://' . $primaryIp . $portPart . $basePath . '/admin/';
           <div class="grid-2" style="margin-bottom: 18px;">
             <!-- Kartu Link Bilik Suara untuk HP / Perangkat Pemilih -->
             <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius); background-color: var(--bg-page);">
-              <div class="stat-label" style="margin-bottom: 6px;">Link Bilik Suara (Untuk HP / Perangkat Pemilih)</div>
+              <div class="stat-label" style="margin-bottom: 6px;">Link Bilik Suara</div>
               <p class="text-muted" style="font-size: 12px; margin-bottom: 10px;">
-                Buka link ini di browser HP/Tablet pemilih yang tersambung ke Wi-Fi yang sama:
+                Buka link ini di browser pemilih yang tersambung ke Wi-Fi yang sama:
               </p>
               <div style="padding: 10px 12px; background-color: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius); margin-bottom: 10px; word-break: break-all;">
                 <a href="<?= e($voterLanUrl) ?>" target="_blank" id="link-voter-lan" class="mono" style="font-size: 14px; font-weight: 700;">
@@ -274,9 +274,9 @@ $adminLanUrl = $scheme . '://' . $primaryIp . $portPart . $basePath . '/admin/';
 
             <!-- Kartu Link Panel Admin untuk HP / Laptop Panitia -->
             <div style="padding: 16px; border: 1px solid var(--border-color); border-radius: var(--radius); background-color: var(--bg-page);">
-              <div class="stat-label" style="margin-bottom: 6px;">Link Panel Admin (Untuk HP / Laptop Panitia)</div>
+              <div class="stat-label" style="margin-bottom: 6px;">Link Panel Admin</div>
               <p class="text-muted" style="font-size: 12px; margin-bottom: 10px;">
-                Buka link ini di HP panitia untuk memantau token dan suara dari jarak jauh:
+                Buka link ini di HP panitia:
               </p>
               <div style="padding: 10px 12px; background-color: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius); margin-bottom: 10px; word-break: break-all;">
                 <a href="<?= e($adminLanUrl) ?>" target="_blank" id="link-admin-lan" class="mono" style="font-size: 14px; font-weight: 700;">

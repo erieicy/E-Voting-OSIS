@@ -212,7 +212,7 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
       <div class="page-header">
         <div>
           <h1>Pengaturan Sistem &amp; Tampilan</h1>
-          <p>Atur identitas sekolah, status bilik suara, tema antarmuka (White / Dark), dan reset simulasi</p>
+          <p>Atur identitas sekolah, status bilik suara, tema antarmuka, dan reset data</p>
         </div>
       </div>
 
@@ -242,8 +242,8 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
                 <div class="form-group">
                   <label class="form-label" for="tema">Tema Tampilan Antarmuka (UI)</label>
                   <select id="tema" name="tema" class="form-control">
-                    <option value="light" <?= $pengaturan['tema'] === 'light' ? 'selected' : '' ?>>White (Terang / Bersih)</option>
-                    <option value="dark" <?= $pengaturan['tema'] === 'dark' ? 'selected' : '' ?>>Dark (Gelap / Kontras Rendah Cahaya)</option>
+                    <option value="light" <?= $pengaturan['tema'] === 'light' ? 'selected' : '' ?>>White / Terang</option>
+                    <option value="dark" <?= $pengaturan['tema'] === 'dark' ? 'selected' : '' ?>>Dark / Gelap</option>
                   </select>
                   <span class="form-hint">Berlaku untuk halaman Administrator dan seluruh perangkat Bilik Suara.</span>
                 </div>
@@ -278,8 +278,8 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
                 <div class="form-group">
                   <label class="form-label" for="status_voting">Status Akses Bilik Suara</label>
                   <select id="status_voting" name="status_voting" class="form-control">
-                    <option value="buka" <?= $pengaturan['status_voting'] === 'buka' ? 'selected' : '' ?>>Buka (Pemilih Dapat Memasukkan Token)</option>
-                    <option value="tutup" <?= $pengaturan['status_voting'] === 'tutup' ? 'selected' : '' ?>>Tutup (Kunci Akses Bilik Suara)</option>
+                    <option value="buka" <?= $pengaturan['status_voting'] === 'buka' ? 'selected' : '' ?>>Buka</option>
+                    <option value="tutup" <?= $pengaturan['status_voting'] === 'tutup' ? 'selected' : '' ?>>Tutup</option>
                   </select>
                 </div>
 

@@ -61,9 +61,14 @@
         const isOpen = document.body.classList.contains('mobile-nav-open');
         toggleBtn.innerHTML = isOpen ? '&#10005;' : '&#9776;';
         toggleBtn.title = isOpen ? 'Tutup Menu' : 'Buka Menu';
+        toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
       } else {
-        toggleBtn.innerHTML = '&#10005;';
-        toggleBtn.title = 'Tutup Menu';
+        const isClosed = document.body.classList.contains('sidebar-closed');
+        if (openBtn) {
+          openBtn.innerHTML = isClosed ? '&#9776;' : '&#10005;';
+          openBtn.title = isClosed ? 'Buka Menu' : 'Tutup Menu';
+          openBtn.setAttribute('aria-expanded', isClosed ? 'false' : 'true');
+        }
       }
     }
 
@@ -81,18 +86,19 @@
         // HP / Tablet: Buka & tutup dari atas ke bawah
         document.body.classList.toggle('mobile-nav-open');
       } else {
-        // Laptop: Tutup ke kiri
-        document.body.classList.add('sidebar-closed');
-        try { localStorage.setItem('evoting_sidebar_closed', '1'); } catch (_) {}
+        const willClose = !document.body.classList.contains('sidebar-closed');
+        document.body.classList.toggle('sidebar-closed', willClose);
+        try { localStorage.setItem('evoting_sidebar_closed', willClose ? '1' : '0'); } catch (_) {}
       }
       syncButtonLabel();
     });
 
     if (openBtn) {
       openBtn.addEventListener('click', function () {
-        // Laptop: Buka dari kiri ke kanan
-        document.body.classList.remove('sidebar-closed');
-        try { localStorage.setItem('evoting_sidebar_closed', '0'); } catch (_) {}
+        // Laptop: Toggle buka & tutup di posisi tombol yang sama (di header halaman)
+        const willClose = !document.body.classList.contains('sidebar-closed');
+        document.body.classList.toggle('sidebar-closed', willClose);
+        try { localStorage.setItem('evoting_sidebar_closed', willClose ? '1' : '0'); } catch (_) {}
         syncButtonLabel();
       });
     }
