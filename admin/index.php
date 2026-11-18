@@ -73,7 +73,9 @@ if (isset($_GET['ajax'])) {
         'jumlah_kandidat_fmt' => 'Jumlah Kandidat: ' . count($kandidatList) . ' Paslon',
         'chart_sig'           => $chartSig,
         'chart_html'          => ($clientSig !== $chartSig) ? render_dashboard_chart($pengaturan, $kandidatList, $totalSuaraKandidat) : null,
-        'kandidat'            => build_candidate_ajax_payload($kandidatList, $totalSuaraKandidat),
+        'kandidat'            => ((int)$pengaturan['tampilkan_hasil'] === 1)
+            ? build_candidate_ajax_payload($kandidatList, $totalSuaraKandidat)
+            : [],
     ]);
     exit;
 }

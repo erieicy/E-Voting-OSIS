@@ -75,7 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
         if ($rowOld) {
             if ((int)$rowOld['jumlah_suara'] > 0) {
-                $_SESSION['flash_kandidat_err'] = 'Kandidat "' . $rowOld['nama_ketua'] . '" tidak dapat dihapus karena sudah memiliki ' . (int)$rowOld['jumlah_suara'] . ' suara sah. Gunakan Reset Data Simulasi di menu Pengaturan jika ingin mengulang pemilihan.';
+                $infoSuara = ((int)$pengaturan['tampilkan_hasil'] === 1)
+                    ? ' sudah memiliki ' . (int)$rowOld['jumlah_suara'] . ' suara sah.'
+                    : ' sudah memiliki suara sah.';
+                $_SESSION['flash_kandidat_err'] = 'Kandidat "' . $rowOld['nama_ketua'] . '" tidak dapat dihapus karena' . $infoSuara . ' Gunakan Reset Data Simulasi di menu Pengaturan jika ingin mengulang pemilihan.';
             } else {
                 delete_old_photo($uploadDir, $rowOld['nama_file_foto']);
                 $stmtDel = $pdo->prepare('DELETE FROM kandidat WHERE id = ?');
@@ -110,6 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         $error = 'Token keamanan tidak valid.';
     } elseif ($idEdit > 0 && !$existing) {
         $error = 'Data kandidat yang akan diedit tidak ditemukan.';
+    } elseif ($idEdit > 0 && (int)$existing['jumlah_suara'] > 0) {
+        $error = 'Kandidat sudah memiliki suara sah dan tidak dapat diubah. Gunakan Reset Data Simulasi di menu Pengaturan jika ingin mengubah data.';
     } elseif ($noUrut <= 0 || $noUrut > 99 || $namaKetua === '' || $visi === '' || $misi === '') {
         $error = 'Nomor urut (1–99), Nama Calon Ketua, Visi, dan Misi wajib diisi.';
     } elseif (mb_strlen($namaKetua) > 100 || mb_strlen($namaWakil) > 100 || mb_strlen($namaCustom) > 100) {
@@ -271,6 +276,13 @@ if ($failedFormData !== null) {
     $stmtEdit->execute([(int)$_GET['edit']]);
     $editData   = $stmtEdit->fetch() ?: null;
     $isEditMode = ($editData !== null);
+}
+
+// Kandidat yang sudah memiliki suara sah tidak boleh diubah lagi.
+if ($editData && (int)($editData['jumlah_suara'] ?? 0) > 0) {
+    $_SESSION['flash_kandidat_err'] = 'Kandidat sudah memiliki suara sah dan tidak dapat diubah. Gunakan Reset Data Simulasi di menu Pengaturan jika ingin mengubah data.';
+    header('Location: kandidat.php');
+    exit;
 }
 
 // Daftar seluruh kandidat
@@ -539,7 +551,18 @@ if ($editData) {
                       </td>
                       <td>
                         <div style="display: flex; gap: 6px; align-items: center;">
-                          <a href="kandidat.php?edit=<?= (int)$k['id'] ?>" class="btn btn-sm">Edit</a>
+                          <?php if ($hasVotes): ?>
+                            <button
+                              type="button"
+                              class="btn btn-sm"
+                              disabled
+                              title="Tidak dapat diubah karena sudah memiliki suara sah"
+                            >
+                              Edit
+                            </button>
+                          <?php else: ?>
+                            <a href="kandidat.php?edit=<?= (int)$k['id'] ?>" class="btn btn-sm">Edit</a>
+                          <?php endif; ?>
                           <?php if ($hasVotes): ?>
                             <button
                               type="button"

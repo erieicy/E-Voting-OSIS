@@ -227,12 +227,11 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
         <div class="alert alert-error"><?= e($error) ?></div>
       <?php endif; ?>
 
-      <div class="grid-2">
-        <!-- 1. Pengaturan Umum & Buka Kunci Installer -->
-        <div>
-          <div class="panel">
-            <div class="panel-header">
-              <span>Konfigurasi Pemilihan &amp; Tema Tampilan</span>
+      <div class="grid-2 settings-grid">
+        <!-- 1. Konfigurasi Pemilihan -->
+        <div class="panel settings-config">
+          <div class="panel-header">
+            <span>Konfigurasi Pemilihan &amp; Tema Tampilan</span>
             </div>
             <div class="panel-body">
               <form method="post" action="pengaturan.php" autocomplete="off">
@@ -296,49 +295,10 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
             </div>
           </div>
 
-          <!-- Panel Buka Kunci install.php & Reset Total Sistem dari Awal -->
-          <div id="panel-installer" class="panel" style="border-color: var(--danger-border);">
-            <div class="panel-header" style="background-color: var(--danger-bg); color: var(--danger);">
-              <span>Buka Kunci &amp; Instal Ulang Sistem dari Awal </span>
-            </div>
-            <div class="panel-body">
-              <p class="text-muted" style="font-size: 13px; margin-bottom: 14px;">
-                Tindakan ini akan <strong>menghapus seluruh tabel database (pengaturan sekolah, akun admin, kandidat, foto kandidat, &amp; token)</strong>, menghapus file <code>config.php</code> serta <code>installed.lock</code>, dan mengembalikan sistem ke halaman <code>install.php</code> seperti baru pertama kali diinstal.
-              </p>
-              <form method="post" action="pengaturan.php" autocomplete="off">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                <input type="hidden" name="action" value="unlock_installer">
-                <div class="form-group">
-                  <label class="form-label" for="password_install">Konfirmasi Password Admin *</label>
-                  <input
-                    type="password"
-                    id="password_install"
-                    name="password_install"
-                    class="form-control js-reauth-control"
-                    placeholder="Masukkan password Administrator"
-                    <?= $waitSec > 0 ? 'disabled' : '' ?>
-                    required
-                  >
-                </div>
-                <button
-                  type="submit"
-                  class="btn btn-danger btn-block js-confirm js-reauth-control js-reauth-submit"
-                  data-label="Reset Total &amp; Buka Halaman install.php"
-                  data-confirm="PERINGATAN KERAS: Seluruh data (kandidat, foto, token, akun admin, dan pengaturan) akan dihapus total dari awal dan diarahkan ke install.php. Lanjutkan?"
-                  <?= $waitSec > 0 ? 'disabled' : '' ?>
-                >
-                  <?= $waitSec > 0 ? 'Tunggu ' . (int)$waitSec . ' Detik...' : 'Reset Total &amp; Buka Halaman install.php' ?>
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. Pengaturan Akun Admin & Reset Simulasi -->
-        <div>
-          <div class="panel">
-            <div class="panel-header">
-              <span>Akun Administrator</span>
+        <!-- 2. Akun Administrator -->
+        <div class="panel settings-account">
+          <div class="panel-header">
+            <span>Akun Administrator</span>
             </div>
             <div class="panel-body">
               <form method="post" action="pengaturan.php" autocomplete="off">
@@ -408,7 +368,7 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
           </div>
 
           <!-- 3. Reset Data Simulasi (FR-12) -->
-          <div class="panel" style="border-color: var(--danger-border);">
+          <div class="panel settings-reset" style="border-color: var(--danger-border);">
             <div class="panel-header" style="background-color: var(--danger-bg); color: var(--danger);">
               <span>Reset Data</span>
             </div>
@@ -416,35 +376,117 @@ $waitSec    = check_rate_limit('admin_reauth', 5, 30);
               <p class="text-muted" style="font-size: 13px; margin-bottom: 14px;">
                 Tindakan ini akan <strong>menghapus seluruh kode token</strong> dan mengatur ulang <strong>jumlah suara semua kandidat kembali ke 0</strong>. Data biodata dan foto kandidat tidak akan terhapus.
               </p>
-              <form method="post" action="pengaturan.php" autocomplete="off">
-                <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-                <input type="hidden" name="action" value="reset_simulasi">
-                <div class="form-group">
-                  <label class="form-label" for="password_konfirmasi">Masukkan Password Admin untuk Konfirmasi *</label>
-                  <input
-                    type="password"
-                    id="password_konfirmasi"
-                    name="password_konfirmasi"
-                    class="form-control js-reauth-control"
-                    placeholder="Password Administrator"
-                    <?= $waitSec > 0 ? 'disabled' : '' ?>
-                    required
-                  >
-                </div>
-                <button
-                  type="submit"
-                  class="btn btn-danger btn-block js-confirm js-reauth-control js-reauth-submit"
-                  data-label="Hapus Seluruh Token &amp; Reset Suara ke 0"
-                  data-confirm="PERINGATAN: Seluruh token dan perolehan suara akan direset ke 0. Lanjutkan?"
-                  <?= $waitSec > 0 ? 'disabled' : '' ?>
-                >
-                  <?= $waitSec > 0 ? 'Tunggu ' . (int)$waitSec . ' Detik...' : 'Hapus Seluruh Token &amp; Reset Suara ke 0' ?>
-                </button>
-              </form>
+              <button
+                type="button"
+                class="btn btn-danger btn-block js-reauth-control js-open-dialog"
+                data-dialog="dialog-reset"
+                aria-haspopup="dialog"
+                aria-controls="dialog-reset"
+                <?= $waitSec > 0 ? 'disabled' : '' ?>
+              >
+                Hapus Seluruh Token &amp; Reset Suara ke 0
+              </button>
             </div>
           </div>
-        </div>
+
+          <!-- Panel Buka Kunci install.php & Reset Total Sistem dari Awal -->
+          <div id="panel-installer" class="panel settings-installer" style="border-color: var(--danger-border);">
+            <div class="panel-header" style="background-color: var(--danger-bg); color: var(--danger);">
+              <span>Buka Kunci &amp; Instal Ulang Sistem dari Awal </span>
+            </div>
+            <div class="panel-body">
+              <p class="text-muted" style="font-size: 13px; margin-bottom: 14px;">
+                Tindakan ini akan <strong>menghapus seluruh tabel database (pengaturan sekolah, akun admin, kandidat, foto kandidat, &amp; token)</strong>, menghapus file <code>config.php</code> serta <code>installed.lock</code>, dan mengembalikan sistem ke halaman <code>install.php</code> seperti baru pertama kali diinstal.
+              </p>
+              <button
+                type="button"
+                class="btn btn-danger btn-block js-reauth-control js-open-dialog"
+                data-dialog="dialog-unlock"
+                aria-haspopup="dialog"
+                aria-controls="dialog-unlock"
+                <?= $waitSec > 0 ? 'disabled' : '' ?>
+              >
+                Reset Total &amp; Buka Halaman install.php
+              </button>
+            </div>
+          </div>
       </div>
+
+      <dialog id="dialog-reset" class="confirm-dialog" aria-labelledby="dialog-reset-title">
+        <form method="post" action="pengaturan.php" autocomplete="off">
+          <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="reset_simulasi">
+          <div class="panel-header confirm-dialog-header confirm-dialog-header-danger">
+            <span id="dialog-reset-title">Reset Data</span>
+          </div>
+          <div class="panel-body">
+            <p class="text-muted confirm-dialog-text">
+              Masukkan password Administrator untuk menghapus seluruh token dan mengembalikan suara kandidat ke 0. Jika password salah, tidak ada data yang dihapus.
+            </p>
+            <div class="form-group">
+              <label class="form-label" for="password_konfirmasi">Password Administrator *</label>
+              <input
+                type="password"
+                id="password_konfirmasi"
+                name="password_konfirmasi"
+                class="form-control"
+                placeholder="Password Administrator"
+                <?= $waitSec > 0 ? 'disabled' : '' ?>
+                required
+              >
+            </div>
+            <div class="confirm-dialog-actions">
+              <button type="button" class="btn js-close-dialog">Batal</button>
+              <button
+                type="submit"
+                class="btn btn-danger js-reauth-control js-reauth-submit"
+                data-label="Hapus Seluruh Token &amp; Reset Suara ke 0"
+                <?= $waitSec > 0 ? 'disabled' : '' ?>
+              >
+                Hapus Seluruh Token &amp; Reset Suara ke 0
+              </button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="dialog-unlock" class="confirm-dialog" aria-labelledby="dialog-unlock-title">
+        <form method="post" action="pengaturan.php" autocomplete="off">
+          <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="action" value="unlock_installer">
+          <div class="panel-header confirm-dialog-header confirm-dialog-header-danger">
+            <span id="dialog-unlock-title">Buka Kunci &amp; Instal Ulang</span>
+          </div>
+          <div class="panel-body">
+            <p class="text-muted confirm-dialog-text">
+              Masukkan password Administrator untuk menghapus seluruh data dan membuka kembali <code>install.php</code>. Jika password salah, tidak ada data yang dihapus.
+            </p>
+            <div class="form-group">
+              <label class="form-label" for="password_install">Password Administrator *</label>
+              <input
+                type="password"
+                id="password_install"
+                name="password_install"
+                class="form-control"
+                placeholder="Password Administrator"
+                <?= $waitSec > 0 ? 'disabled' : '' ?>
+                required
+              >
+            </div>
+            <div class="confirm-dialog-actions">
+              <button type="button" class="btn js-close-dialog">Batal</button>
+              <button
+                type="submit"
+                class="btn btn-danger js-reauth-control js-reauth-submit"
+                data-label="Reset Total &amp; Buka Halaman install.php"
+                <?= $waitSec > 0 ? 'disabled' : '' ?>
+              >
+                Reset Total &amp; Buka Halaman install.php
+              </button>
+            </div>
+          </div>
+        </form>
+      </dialog>
     </main>
   </div>
   <script src="../assets/js/admin.js"></script>

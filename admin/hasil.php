@@ -165,7 +165,7 @@ if (isset($_GET['ajax'])) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, no-cache, must-revalidate');
     echo json_encode([
-        'total_suara_sah_fmt' => number_format($totalSuaraSah, 0, ',', '.'),
+        'total_suara_sah_fmt' => $isUnlocked ? number_format($totalSuaraSah, 0, ',', '.') : '-',
         'token_terpakai_fmt'  => number_format($tokenTerpakai, 0, ',', '.'),
         'token_meta_fmt'      => 'Dari total ' . number_format($totalToken, 0, ',', '.') . ' token',
         'token_sisa_fmt'      => number_format($tokenSisa, 0, ',', '.'),
@@ -174,7 +174,7 @@ if (isset($_GET['ajax'])) {
         'struct_sig'          => $structSig,
         'header_html'         => $structChanged ? render_hasil_header_controls($isUnlocked, $activeCsrf) : null,
         'section_html'        => $structChanged ? render_hasil_results_section($isUnlocked, $kandidatList, $totalSuaraSah, $activeCsrf) : null,
-        'kandidat'            => build_candidate_ajax_payload($kandidatList, $totalSuaraSah),
+        'kandidat'            => $isUnlocked ? build_candidate_ajax_payload($kandidatList, $totalSuaraSah) : [],
     ]);
     exit;
 }
@@ -242,7 +242,7 @@ if (isset($_GET['ajax'])) {
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">Total Suara Sah Masuk</div>
-          <div class="stat-value" id="hasil-total-suara"><?= number_format($totalSuaraSah, 0, ',', '.') ?></div>
+          <div class="stat-value" id="hasil-total-suara"><?= $isUnlocked ? number_format($totalSuaraSah, 0, ',', '.') : '&mdash;' ?></div>
           <div class="stat-meta">Akumulasi seluruh kandidat</div>
         </div>
         <div class="stat-card">

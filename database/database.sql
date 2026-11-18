@@ -26,7 +26,8 @@ ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- ----------------------------------------------------------
 -- 2. Tabel `admin`
--- Akun Default: username = admin | password = admin123
+-- Tidak ada akun default. Buat akun pertama melalui install.php
+-- atau INSERT dengan hash password_hash() (bcrypt) dari PHP.
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `admin` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -37,9 +38,6 @@ CREATE TABLE IF NOT EXISTS `admin` (
   UNIQUE KEY `idx_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `admin` (`id`, `username`, `password`, `nama_lengkap`)
-VALUES (1, 'admin', '$2y$10$./2KgU4vulAyPsJN4v21IOqvYEMC8LipkvV9oVX.YTMAeJV.XXacu', 'Panitia Pemilihan (MPK)')
-ON DUPLICATE KEY UPDATE `id` = `id`;
 
 -- ----------------------------------------------------------
 -- 3. Tabel `kandidat`

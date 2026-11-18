@@ -6,7 +6,7 @@ Aplikasi web pemungutan suara elektronik (*E-Voting*) untuk Pemilihan Ketua & Wa
 
 ## Fitur Utama
 
-1. **Web Installer Mandiri (`install.php`):** Pengaturan database, pembuatan tabel otomatis, pengisian identitas sekolah, dan pembuatan akun Admin langsung dari browser tanpa perlu membuka phpMyAdmin. Otomatis mengunci instalasi dengan `installed.lock`.
+1. **Web Installer Mandiri (`install.php`):** Pengaturan database, pembuatan tabel otomatis, pengisian identitas sekolah, dan pembuatan akun Admin langsung dari browser tanpa perlu membuka phpMyAdmin. Otomatis menonaktifkan installer (HTTP 404) setelah instalasi selesai.
 2. **One-Time Token Generator & Cetak Siap Gunting:** Pembuatan hingga 1.000 token per eksekusi (6 karakter huruf kapital & angka tanpa karakter ambigu `O`/`0` dan `I`/`1`) serta halaman cetak khusus kertas A4.
 3. **Pencegahan Double-Submit (Transaksi Atomik):** Validasi dan penghangusan token dilakukan menggunakan transaksi MySQL (`PDO::beginTransaction`) sehingga aman dari *race condition*.
 4. **Kerahasiaan Suara (Voter Anonymity):** Tabel `tokens` tidak menyimpan relasi ke kandidat yang dipilih. Panitia dapat memverifikasi kapan token digunakan, namun tidak dapat melacak pilihan pemilih.
@@ -197,7 +197,7 @@ Jika Anda ingin mengambil proyek langsung memakai Git (atau ingin bisa melakukan
    - **Koneksi Database:** Host `localhost`, Nama Database `db_evoting_osis`, Username `root`, dan Password kosongkan *(jika menggunakan bawaan XAMPP/Laragon)*.
    - **Identitas Sekolah & Tema:** Isi Nama Sekolah, Periode Kepengurusan (contoh: `2026/2027`), dan pilih Tema Tampilan (`White` atau `Dark`).
    - **Akun Administrator Pertama:** Buat Nama Lengkap Panitia, Username login, dan Password login Admin (minimal 5 karakter) lalu catat baik-baik agar tidak lupa.
-5. Klik **Jalankan Instalasi Sekarang**. Sistem akan otomatis membuat database, seluruh tabel, file `config/config.php`, dan mengunci halaman instalasi dengan file `installed.lock`.
+5. Klik **Jalankan Instalasi Sekarang**. Sistem akan otomatis membuat database, seluruh tabel, file `config/config.php`, dan menonaktifkan `install.php` (HTTP 404) dengan file `installed.lock`.
 6. Setelah muncul pesan **Instalasi Berhasil**, klik **Masuk Panel Admin** untuk mulai menambahkan data kandidat dan mencetak token.
 
 #### Cara 2: Instalasi Manual via phpMyAdmin (Alternatif)
@@ -206,9 +206,16 @@ Jika Anda ingin mengambil proyek langsung memakai Git (atau ingin bisa melakukan
 2. Import file `database/database.sql`.
 3. Salin file `config/config.example.php` menjadi `config/config.php` dan sesuaikan kredensial database jika diperlukan.
 4. Buat file kosong bernama `installed.lock` di direktori utama proyek.
-5. Login ke halaman Admin (`http://localhost/E-Voting-OSIS/admin/login.php`) menggunakan akun bawaan:
-   - **Username:** `admin`
-   - **Password:** `admin123`
+5. Buat akun admin pertama. **Tidak ada akun default.** Cara termudah adalah memakai **Cara 1 (web installer)**. Jika tetap ingin manual, buat hash password dengan PHP:
+   ```bash
+   php -r "echo password_hash('PasswordKuatAnda', PASSWORD_BCRYPT), PHP_EOL;"
+   ```
+   lalu jalankan di phpMyAdmin:
+   ```sql
+   INSERT INTO admin (username, password, nama_lengkap)
+   VALUES ('username_anda', '<hash_dari_perintah_di_atas>', 'Nama Panitia');
+   ```
+6. Login ke halaman Admin (`http://localhost/E-Voting-OSIS/admin/login.php`) menggunakan akun yang baru dibuat.
 
 ---
 
@@ -228,9 +235,10 @@ Agar perangkat di bilik suara (Smartphone, Tablet, atau Laptop klien) dapat meng
    *(Tips: Alamat link bilik suara beserta IP lokal ini juga ditampilkan langsung di halaman **Dashboard Admin** sehingga tinggal disalin atau diketik).*
 4. Pada browser perangkat di setiap bilik suara, buka alamat berikut (ganti `192.168.1.10` sesuai IP laptop server Anda):
    ```text
-   http://192.168.1.10/E-Voting-OSIS/
+   https://192.168.1.10/E-Voting-OSIS/
    ```
-5. Pastikan **Windows Firewall** pada Laptop Server mengizinkan koneksi masuk untuk port `80` (Apache HTTP Server).
+   > **HTTPS wajib untuk akses non-localhost.** Aplikasi mengalihkan `http://` ke `https://` dan menonaktifkan `install.php` setelah terpasang. Siapkan sertifikat TLS di Apache (`mod_ssl`) atau reverse proxy HTTPS. Untuk pengujian di komputer server sendiri, `http://localhost/...` tetap diizinkan.
+5. Pastikan **Windows Firewall** pada Laptop Server mengizinkan koneksi masuk untuk port `443` (HTTPS) dan port `80` (hanya untuk pengalihan ke HTTPS).
 
 ---
 

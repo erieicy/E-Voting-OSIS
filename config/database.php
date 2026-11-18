@@ -6,6 +6,49 @@
 
 date_default_timezone_set('Asia/Jakarta');
 
+/**
+ * Deteksi HTTPS asli dari web server.
+ * Header proxy seperti X-Forwarded-Proto sengaja tidak dipercaya agar
+ * penyerang tidak bisa melewati pemaksaan HTTPS hanya dengan menambah header.
+ */
+function request_is_https(): bool {
+    if (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') {
+        return true;
+    }
+    return (int)($_SERVER['SERVER_PORT'] ?? 0) === 443;
+}
+
+/**
+ * Host loopback diizinkan memakai HTTP untuk pengembangan di komputer server.
+ */
+function request_host_is_loopback(): bool {
+    $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+    $host = preg_replace('/:\d+$/', '', $host);
+    return in_array($host, ['localhost', '127.0.0.1', '::1', '[::1]'], true);
+}
+
+/**
+ * Pastikan klien benar-benar berada di komputer server, bukan hanya
+ * memalsukan Host: localhost dari perangkat LAN.
+ */
+function request_is_loopback_client(): bool {
+    $remote = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    return in_array($remote, ['127.0.0.1', '::1', '::ffff:127.0.0.1'], true);
+}
+
+// Paksa HTTPS untuk semua akses non-loopback (LAN/Wi-Fi).
+if (PHP_SAPI !== 'cli' && !request_is_https() && !(request_host_is_loopback() && request_is_loopback_client())) {
+    $host = (string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '');
+    $host = preg_replace('/:\d+$/', '', $host);
+    if ($host === '' || !preg_match('/^[A-Za-z0-9.\-\[\]:]+$/', $host)) {
+        http_response_code(400);
+        exit('Host header tidak valid.');
+    }
+    $uri = str_replace(["\r", "\n"], '', (string)($_SERVER['REQUEST_URI'] ?? '/'));
+    header('Location: https://' . $host . $uri, true, 301);
+    exit;
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
@@ -13,7 +56,7 @@ if (session_status() === PHP_SESSION_NONE) {
         'lifetime' => 0,
         'path'     => '/',
         'domain'   => '',
-        'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'secure'   => request_is_https(),
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
@@ -27,6 +70,9 @@ if (!headers_sent()) {
     header('Referrer-Policy: same-origin');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
+    if (request_is_https()) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
 }
 
 /**
@@ -332,10 +378,6 @@ try {
     ]);
 } catch (PDOException $ex) {
     error_log('Database connection error: ' . $ex->getMessage());
-    $errCode = (int)($ex->errorInfo[1] ?? $ex->getCode());
-    if ($errCode === 1049 && file_exists($lockFile)) {
-        @unlink($lockFile);
-    }
     if (!file_exists($lockFile)) {
         if (is_ajax_or_status_request()) {
             send_json_error(503, ['error' => 'uninstalled']);
@@ -379,11 +421,11 @@ function get_pengaturan(PDO $pdo): array {
         }
     } catch (PDOException $e) {
         error_log('Pengaturan query error: ' . $e->getMessage());
-        @unlink(dirname(__DIR__) . '/installed.lock');
         if (is_ajax_or_status_request()) {
-            send_json_error(503, ['error' => 'uninstalled']);
+            send_json_error(503, ['error' => 'database_error']);
         }
-        redirect_to_installer();
+        http_response_code(500);
+        die('Terjadi kesalahan pada database. Sistem tetap dalam mode terpasang; hubungi panitia.');
     }
 
     return $defaults;

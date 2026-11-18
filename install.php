@@ -6,6 +6,35 @@
 
 date_default_timezone_set('Asia/Jakarta');
 
+$lockFile = __DIR__ . '/installed.lock';
+
+// Setelah instalasi selesai, installer dinonaktifkan total (HTTP 404).
+// Reset hanya dapat dilakukan dari panel admin yang memverifikasi password.
+if (file_exists($lockFile)) {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    exit('Installer dinonaktifkan karena sistem sudah terpasang.');
+}
+
+// Paksa HTTPS untuk akses non-loopback (LAN/Wi-Fi).
+$installerIsHttps = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+    || ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+$installerHost    = (string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '');
+$installerHost    = preg_replace('/:\d+$/', '', $installerHost);
+$installerIsLocal = in_array(strtolower($installerHost), ['localhost', '127.0.0.1', '::1', '[::1]'], true)
+    && in_array((string)($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1', '::ffff:127.0.0.1'], true);
+
+if (PHP_SAPI !== 'cli' && !$installerIsHttps && !$installerIsLocal) {
+    if ($installerHost === '' || !preg_match('/^[A-Za-z0-9.\-\[\]:]+$/', $installerHost)) {
+        http_response_code(400);
+        exit('Host header tidak valid.');
+    }
+    $installerUri = str_replace(["\r", "\n"], '', (string)($_SERVER['REQUEST_URI'] ?? '/'));
+    header('Location: https://' . $installerHost . $installerUri, true, 301);
+    exit;
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
@@ -13,7 +42,7 @@ if (session_status() === PHP_SESSION_NONE) {
         'lifetime' => 0,
         'path'     => '/',
         'domain'   => '',
-        'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'secure'   => $installerIsHttps,
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
@@ -26,65 +55,14 @@ if (!headers_sent()) {
     header('Referrer-Policy: same-origin');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
-}
-
-$lockFile   = __DIR__ . '/installed.lock';
-$configFile = __DIR__ . '/config/config.php';
-$isLocked   = file_exists($lockFile);
-
-$error   = '';
-$success = false;
-
-// Validasi integritas instalasi ketika installed.lock ditemukan (mencegah deadlock jika DB/tabel hilang atau admin kosong)
-if ($isLocked) {
-    try {
-        if (file_exists($configFile)) {
-            require_once $configFile;
-        }
-        $iHost = defined('DB_HOST') ? DB_HOST : 'localhost';
-        $iUser = defined('DB_USER') ? DB_USER : 'root';
-        $iPass = defined('DB_PASS') ? DB_PASS : '';
-        $iName = defined('DB_NAME') ? DB_NAME : 'db_evoting_osis';
-
-        $pdoIntegrity = new PDO("mysql:host={$iHost};charset=utf8mb4", $iUser, $iPass, [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ]);
-
-        $stmtSchema = $pdoIntegrity->prepare('SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ? LIMIT 1');
-        $stmtSchema->execute([$iName]);
-        if (!$stmtSchema->fetchColumn()) {
-            @unlink($lockFile);
-            $isLocked = false;
-        } else {
-            $iNameQuoted = str_replace('`', '``', $iName);
-            $pdoIntegrity->exec("USE `{$iNameQuoted}`");
-            $existingTables = array_map('strtolower', $pdoIntegrity->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN));
-            $requiredTables = ['pengaturan', 'admin', 'kandidat', 'tokens'];
-            if (count(array_intersect($requiredTables, $existingTables)) < count($requiredTables)) {
-                @unlink($lockFile);
-                $isLocked = false;
-            } else {
-                $adminCount = (int)$pdoIntegrity->query('SELECT COUNT(*) FROM `admin`')->fetchColumn();
-                if ($adminCount < 1) {
-                    @unlink($lockFile);
-                    $isLocked = false;
-                }
-            }
-        }
-        $pdoIntegrity = null;
-    } catch (PDOException $e) {
-        error_log('Install integrity check error: ' . $e->getMessage());
-        $errCode = (int)($e->errorInfo[1] ?? $e->getCode());
-        if ($errCode === 1049) {
-            @unlink($lockFile);
-            $isLocked = false;
-        } else {
-            $error = 'Tidak dapat terhubung ke layanan MySQL/MariaDB. Pastikan layanan database aktif.';
-        }
+    if ($installerIsHttps) {
+        header('Strict-Transport-Security: max-age=31536000');
     }
 }
+
+$configFile = __DIR__ . '/config/config.php';
+$error   = '';
+$success = false;
 
 function h($s): string {
     return htmlspecialchars((string)($s ?? ''), ENT_QUOTES, 'UTF-8');
@@ -99,138 +77,6 @@ function install_csrf_token(): string {
 
 function install_verify_csrf(?string $token): bool {
     return !empty($_SESSION['csrf_token']) && !empty($token) && hash_equals($_SESSION['csrf_token'], $token);
-}
-
-function install_rate_limit_file_path(string $bucket): string {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    return rtrim(sys_get_temp_dir(), '/\\') . '/evoting_rl_' . md5($bucket . '|' . $ip) . '.json';
-}
-
-function install_select_active_rate_limit(array $candidates, int $maxAttempts, int $now): array {
-    $best = ['count' => 0, 'expires' => 0, 'window_expires' => 0];
-    foreach ($candidates as $item) {
-        if (!is_array($item) || !isset($item['count'], $item['expires'])) {
-            continue;
-        }
-        $count   = (int)$item['count'];
-        $expires = (int)$item['expires'];
-        $winExp  = (int)($item['window_expires'] ?? $expires);
-
-        $isActive = ($count >= $maxAttempts) ? ($expires > $now) : ($winExp > $now);
-        if ($isActive && $count > $best['count']) {
-            $best = [
-                'count'          => $count,
-                'expires'        => $expires,
-                'window_expires' => $winExp,
-            ];
-        }
-    }
-    return $best;
-}
-
-function install_get_rate_limit_data(string $bucket, int $maxAttempts, int $now): array {
-    $file       = install_rate_limit_file_path($bucket);
-    $candidates = [];
-
-    if (is_file($file)) {
-        $raw = false;
-        $fp  = @fopen($file, 'rb');
-        if ($fp !== false) {
-            if (@flock($fp, LOCK_SH)) {
-                $raw = stream_get_contents($fp);
-                @flock($fp, LOCK_UN);
-            }
-            fclose($fp);
-        }
-        $dec = (is_string($raw) && $raw !== '') ? @json_decode($raw, true) : null;
-        if (is_array($dec)) {
-            $candidates[] = $dec;
-        }
-    }
-
-    $sessKey = 'rl_' . $bucket;
-    if (!empty($_SESSION[$sessKey]) && is_array($_SESSION[$sessKey])) {
-        $candidates[] = $_SESSION[$sessKey];
-    }
-
-    return install_select_active_rate_limit($candidates, $maxAttempts, $now);
-}
-
-function install_check_rate_limit(string $bucket, int $maxAttempts = 5, int $lockoutSeconds = 30): int {
-    $now  = time();
-    $data = install_get_rate_limit_data($bucket, $maxAttempts, $now);
-    if ($data['count'] >= $maxAttempts && $data['expires'] > $now) {
-        return max(1, (int)($data['expires'] - $now));
-    }
-    return 0;
-}
-
-function install_record_failed(string $bucket, int $lockoutSeconds = 30, int $maxAttempts = 5): int {
-    $now     = time();
-    $file    = install_rate_limit_file_path($bucket);
-    $sessKey = 'rl_' . $bucket;
-    $data    = ['count' => 0, 'expires' => 0, 'window_expires' => 0];
-    $updated = false;
-
-    $fp = @fopen($file, 'c+b');
-    if ($fp !== false) {
-        if (@flock($fp, LOCK_EX)) {
-            rewind($fp);
-            $raw        = stream_get_contents($fp);
-            $candidates = [];
-
-            $dec = (is_string($raw) && $raw !== '') ? @json_decode($raw, true) : null;
-            if (is_array($dec)) {
-                $candidates[] = $dec;
-            }
-            if (!empty($_SESSION[$sessKey]) && is_array($_SESSION[$sessKey])) {
-                $candidates[] = $_SESSION[$sessKey];
-            }
-
-            $data                   = install_select_active_rate_limit($candidates, $maxAttempts, $now);
-            $data['count']++;
-            $data['window_expires'] = $now + max(60, $lockoutSeconds);
-            $data['expires']        = $now + $lockoutSeconds;
-
-            ftruncate($fp, 0);
-            rewind($fp);
-            fwrite($fp, json_encode($data));
-            fflush($fp);
-            @flock($fp, LOCK_UN);
-            $updated = true;
-        }
-        fclose($fp);
-    }
-
-    if (!$updated) {
-        $data                   = install_select_active_rate_limit([$_SESSION[$sessKey] ?? null], $maxAttempts, $now);
-        $data['count']++;
-        $data['window_expires'] = $now + max(60, $lockoutSeconds);
-        $data['expires']        = $now + $lockoutSeconds;
-    }
-
-    $_SESSION[$sessKey] = $data;
-
-    return ($data['count'] >= $maxAttempts) ? $lockoutSeconds : 0;
-}
-
-function install_clear_rate_limit(string $bucket): void {
-    $file = install_rate_limit_file_path($bucket);
-    if (is_file($file)) {
-        $fp = @fopen($file, 'r+b');
-        if ($fp !== false) {
-            if (@flock($fp, LOCK_EX)) {
-                ftruncate($fp, 0);
-                rewind($fp);
-                fwrite($fp, json_encode(['count' => 0, 'expires' => 0, 'window_expires' => 0]));
-                fflush($fp);
-                @flock($fp, LOCK_UN);
-            }
-            fclose($fp);
-        }
-        @unlink($file);
-    }
-    unset($_SESSION['rl_' . $bucket]);
 }
 
 /**
@@ -265,74 +111,8 @@ $form = [
     'admin_pass'   => $_POST['admin_pass'] ?? '',
 ];
 
-$waitSec = $isLocked ? install_check_rate_limit('install_unlock', 5, 30) : 0;
-
-// Proses Buka Kunci & Reset Total Sistem menggunakan Username + Password Admin + CSRF + Rate Limit (BUG-SEC-01)
-if ($isLocked && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unlock_install') {
-    if ($waitSec > 0) {
-        $error = "Terlalu banyak percobaan gagal. Silakan tunggu {$waitSec} detik.";
-    } elseif (!install_verify_csrf($_POST['csrf_token'] ?? '')) {
-        $error = 'Token keamanan formulir tidak valid. Silakan muat ulang halaman.';
-    } else {
-        $unlockUser = trim($_POST['unlock_username'] ?? '');
-        $unlockPass = $_POST['unlock_password'] ?? '';
-
-        if ($unlockUser === '' || $unlockPass === '') {
-            $error = 'Masukkan username dan password Administrator untuk mereset instalasi.';
-        } else {
-            try {
-                if (file_exists($configFile)) {
-                    require_once $configFile;
-                }
-                $uHost = defined('DB_HOST') ? DB_HOST : 'localhost';
-                $uUser = defined('DB_USER') ? DB_USER : 'root';
-                $uPass = defined('DB_PASS') ? DB_PASS : '';
-                $uName = defined('DB_NAME') ? DB_NAME : 'db_evoting_osis';
-
-                $pdoCheck = new PDO("mysql:host={$uHost};dbname={$uName};charset=utf8mb4", $uUser, $uPass, [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                ]);
-
-                $stmtAdm = $pdoCheck->prepare('SELECT id, password FROM admin WHERE username = ? LIMIT 1');
-                $stmtAdm->execute([$unlockUser]);
-                $adm = $stmtAdm->fetch();
-
-                if ($adm && password_verify($unlockPass, $adm['password'])) {
-                    install_clear_rate_limit('install_unlock');
-                    clean_uploaded_photos(__DIR__);
-                    $pdoCheck->exec('DROP TABLE IF EXISTS `tokens`, `kandidat`, `admin`, `pengaturan`');
-
-                    if (file_exists($configFile)) {
-                        @unlink($configFile);
-                    }
-                    if (file_exists($lockFile)) {
-                        @unlink($lockFile);
-                    }
-
-                    $_SESSION = [];
-                    session_regenerate_id(true);
-                    $isLocked = false;
-                    $waitSec  = 0;
-                } else {
-                    $waitSec = install_record_failed('install_unlock', 30, 5);
-                    if ($waitSec > 0) {
-                        $error = "Terlalu banyak percobaan gagal. Silakan tunggu {$waitSec} detik.";
-                    } else {
-                        $error = 'Username atau password Administrator salah! Sistem tidak dapat direset.';
-                    }
-                }
-            } catch (Exception $e) {
-                error_log('Install unlock error: ' . $e->getMessage());
-                $error = 'Gagal memverifikasi kredensial ke database. Periksa koneksi MySQL.';
-            }
-        }
-    }
-}
-
 // Proses Instalasi Baru dari Awal (Clean Install)
-if (!$isLocked && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') !== 'unlock_install') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!install_verify_csrf($_POST['csrf_token'] ?? '')) {
         $error = 'Token keamanan formulir tidak valid. Silakan coba lagi.';
     } else {
@@ -460,7 +240,6 @@ if (!$isLocked && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? 
                 session_regenerate_id(true);
 
                 $success  = true;
-                $isLocked = true;
             } catch (Exception $e) {
                 error_log('Install execution error: ' . $e->getMessage());
                 $error = 'Gagal melakukan instalasi database. Pastikan layanan MySQL aktif dan kredensial database benar.';
@@ -491,7 +270,7 @@ if (!$isLocked && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? 
 
       <?php if ($success): ?>
         <div class="alert alert-success">
-          <strong>Instalasi Berhasil.</strong> Seluruh database, tabel sistem, dan file kunci <code>installed.lock</code> telah diatur ulang dari awal.
+          <strong>Instalasi Berhasil.</strong> Seluruh database, tabel sistem, dan file kunci <code>installed.lock</code> telah dibuat dan dikunci.
         </div>
         <p style="font-size: 14px; margin-bottom: 20px;">
           Halaman instalasi ini telah dikunci secara otomatis demi keamanan. Silakan masuk ke halaman Administrator menggunakan akun yang baru Anda buat.
@@ -500,69 +279,6 @@ if (!$isLocked && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? 
           <a href="admin/login.php" class="btn btn-primary btn-block">Masuk Panel Admin</a>
           <a href="index.php" class="btn btn-block">Buka Bilik Suara</a>
         </div>
-
-      <?php elseif ($isLocked): ?>
-        <?php if ($waitSec > 0): ?>
-          <div class="alert alert-error" id="rl-alert">
-            Terlalu banyak percobaan gagal. Silakan tunggu <strong id="rl-countdown" class="mono" data-wait="<?= (int)$waitSec ?>"><?= (int)$waitSec ?></strong> detik.
-          </div>
-        <?php elseif ($error !== ''): ?>
-          <div class="alert alert-error"><?= h($error) ?></div>
-        <?php endif; ?>
-
-        <div class="alert alert-warning">
-          <strong>Instalasi Terkunci.</strong> Sistem sudah terinstal sebelumnya (file <code>installed.lock</code> ditemukan).
-        </div>
-
-        <div class="install-grid" style="margin-bottom: 22px;">
-          <a href="index.php" class="btn btn-primary btn-block">Ke Halaman Bilik Suara</a>
-          <a href="admin/login.php" class="btn btn-block">Login Administrator</a>
-        </div>
-
-        <form method="post" action="install.php" autocomplete="off" class="install-section" style="padding-top: 18px; border-top: 1px solid var(--border-color); margin-bottom: 0;">
-          <input type="hidden" name="csrf_token" value="<?= h(install_csrf_token()) ?>">
-          <input type="hidden" name="action" value="unlock_install">
-          <div class="install-section-title">Reset Total &amp; Instal Ulang dari Awal (Wajib Kredensial Admin)</div>
-          <p class="text-muted" style="font-size: 13px; margin-bottom: 12px;">
-            Masukkan username dan password Administrator untuk <strong>menghapus seluruh data lama (tabel kandidat, foto, token, akun admin, pengaturan, dan file kunci)</strong> serta membuka kembali wizard <code>install.php</code> dari nol.
-          </p>
-          <div class="install-grid">
-            <div class="form-group">
-              <label class="form-label" for="unlock_username">Username Administrator *</label>
-              <input
-                type="text"
-                id="unlock_username"
-                name="unlock_username"
-                class="form-control mono"
-                maxlength="50"
-                placeholder="Username Admin"
-                <?= $waitSec > 0 ? 'disabled' : '' ?>
-                required
-              >
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="unlock_password">Password Administrator *</label>
-              <input
-                type="password"
-                id="unlock_password"
-                name="unlock_password"
-                class="form-control"
-                placeholder="Password Admin"
-                <?= $waitSec > 0 ? 'disabled' : '' ?>
-                required
-              >
-            </div>
-          </div>
-          <button
-            type="submit"
-            id="btn-unlock-install"
-            class="btn btn-danger btn-block js-confirm"
-            data-confirm="PERINGATAN KERAS: Seluruh data lama (kandidat, foto, token, admin, dan pengaturan) akan dihapus total dari awal. Lanjutkan?"
-            <?= $waitSec > 0 ? 'disabled' : '' ?>
-          >
-            <?= $waitSec > 0 ? 'Tunggu ' . (int)$waitSec . ' Detik...' : 'Reset Total &amp; Buka Wizard install.php' ?>
-          </button>
-        </form>
 
       <?php else: ?>
         <?php if ($error !== ''): ?>
@@ -644,37 +360,5 @@ if (!$isLocked && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? 
     </div>
   </div>
   <script src="assets/js/admin.js"></script>
-  <script>
-    (function () {
-      var rlCountdown = document.getElementById('rl-countdown');
-      var rlAlert     = document.getElementById('rl-alert');
-      var userInp     = document.getElementById('unlock_username');
-      var passInp     = document.getElementById('unlock_password');
-      var unlockBtn   = document.getElementById('btn-unlock-install');
-
-      if (!rlCountdown) return;
-      var rem = parseInt(rlCountdown.getAttribute('data-wait') || rlCountdown.textContent, 10) || 0;
-      if (rem <= 0) return;
-
-      var rlTimer = setInterval(function () {
-        rem -= 1;
-        if (rem <= 0) {
-          clearInterval(rlTimer);
-          if (rlAlert) rlAlert.style.display = 'none';
-          if (userInp) userInp.disabled = false;
-          if (passInp) passInp.disabled = false;
-          if (unlockBtn) {
-            unlockBtn.disabled = false;
-            unlockBtn.textContent = 'Reset Total & Buka Wizard install.php';
-          }
-        } else {
-          rlCountdown.textContent = String(rem);
-          if (unlockBtn) {
-            unlockBtn.textContent = 'Tunggu ' + rem + ' Detik...';
-          }
-        }
-      }, 1000);
-    })();
-  </script>
 </body>
 </html>

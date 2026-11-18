@@ -197,7 +197,51 @@
     }
   });
 
-  // 5. Sinkronisasi Real-Time (Polling + BroadcastChannel antar tab browser)
+  // 5. Dialog konfirmasi password untuk aksi destruktif
+  function openConfirmDialog(dialog) {
+    if (!dialog) return;
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+    const input = dialog.querySelector('input[type="password"]');
+    if (input) {
+      window.setTimeout(function () { input.focus(); }, 0);
+    }
+  }
+
+  function closeConfirmDialog(dialog) {
+    if (!dialog) return;
+    if (typeof dialog.close === 'function') {
+      dialog.close();
+    } else {
+      dialog.removeAttribute('open');
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    const opener = e.target.closest ? e.target.closest('.js-open-dialog') : null;
+    if (opener) {
+      e.preventDefault();
+      openConfirmDialog(document.getElementById(opener.dataset.dialog));
+      return;
+    }
+
+    const closer = e.target.closest ? e.target.closest('.js-close-dialog') : null;
+    if (closer) {
+      e.preventDefault();
+      closeConfirmDialog(closer.closest('dialog'));
+    }
+  });
+
+  document.querySelectorAll('dialog.confirm-dialog').forEach(function (dialog) {
+    dialog.addEventListener('click', function (e) {
+      if (e.target === dialog) closeConfirmDialog(dialog);
+    });
+  });
+
+  // 6. Sinkronisasi Real-Time (Polling + BroadcastChannel antar tab browser)
   window.evotingBroadcastUpdate = function (type) {
     try {
       if (window.BroadcastChannel) {

@@ -136,6 +136,39 @@ body.sidebar-closed .admin-main {
 .panel-body { padding: 18px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
+/* Grid pengaturan: kartu destruktif berada di bawah pada layar HP. */
+.settings-grid {
+  grid-template-areas:
+    "config account"
+    "installer reset";
+}
+.settings-grid > .panel { margin-bottom: 0; }
+.settings-config { grid-area: config; }
+.settings-account { grid-area: account; }
+.settings-reset { grid-area: reset; }
+.settings-installer { grid-area: installer; }
+
+/* Dialog konfirmasi password untuk aksi destruktif. */
+.confirm-dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background-color: var(--bg-surface);
+  color: var(--text-main);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+.confirm-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+.confirm-dialog-header { border-radius: var(--radius) var(--radius) 0 0; }
+.confirm-dialog-header-danger { background-color: var(--danger-bg); color: var(--danger); }
+.confirm-dialog-text { font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
+.confirm-dialog-actions { display: flex; gap: 10px; margin-top: 16px; }
+.confirm-dialog-actions .btn { flex: 1; min-width: 0; }
+
 .table-wrap { width: 100%; overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th, .table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
@@ -241,6 +274,13 @@ body.sidebar-closed .admin-main {
   .admin-main, body.sidebar-closed .admin-main { margin-left: 0; padding: 78px 16px 24px; min-height: auto; }
   .page-header { position: static; margin-top: 0; padding-top: 0; }
   .grid-2 { grid-template-columns: 1fr; }
+  .settings-grid {
+    grid-template-areas:
+      "config"
+      "account"
+      "reset"
+      "installer";
+  }
 
   /* Pagination & Footer Token Ramah HP/Tablet */
   .token-footer-bar {
@@ -275,4 +315,6 @@ body.sidebar-closed .admin-main {
   .token-delete-unused-form .btn {
     width: 100%;
   }
+
+  .confirm-dialog-actions { flex-direction: column; }
 }
