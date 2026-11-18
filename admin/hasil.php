@@ -166,9 +166,9 @@ if (isset($_GET['ajax'])) {
     header('Cache-Control: no-store, no-cache, must-revalidate');
     echo json_encode([
         'total_suara_sah_fmt' => $isUnlocked ? number_format($totalSuaraSah, 0, ',', '.') : '-',
-        'token_terpakai_fmt'  => number_format($tokenTerpakai, 0, ',', '.'),
+        'token_terpakai_fmt'  => $isUnlocked ? number_format($tokenTerpakai, 0, ',', '.') : '-',
         'token_meta_fmt'      => 'Dari total ' . number_format($totalToken, 0, ',', '.') . ' token',
-        'token_sisa_fmt'      => number_format($tokenSisa, 0, ',', '.'),
+        'token_sisa_fmt'      => $isUnlocked ? number_format($tokenSisa, 0, ',', '.') : '-',
         'updated_at_fmt'      => 'Dicetak/Diakses: ' . date('d/m/Y H:i:s') . ' WIB',
         'tema'                => $pengaturan['tema'],
         'struct_sig'          => $structSig,
@@ -247,12 +247,12 @@ if (isset($_GET['ajax'])) {
         </div>
         <div class="stat-card">
           <div class="stat-label">Token Terpakai</div>
-          <div class="stat-value" id="hasil-token-terpakai"><?= number_format($tokenTerpakai, 0, ',', '.') ?></div>
+          <div class="stat-value" id="hasil-token-terpakai"><?= $isUnlocked ? number_format($tokenTerpakai, 0, ',', '.') : '&mdash;' ?></div>
           <div class="stat-meta" id="hasil-token-meta">Dari total <?= number_format($totalToken, 0, ',', '.') ?> token</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Token Belum Dipakai</div>
-          <div class="stat-value" id="hasil-token-sisa"><?= number_format($tokenSisa, 0, ',', '.') ?></div>
+          <div class="stat-value" id="hasil-token-sisa"><?= $isUnlocked ? number_format($tokenSisa, 0, ',', '.') : '&mdash;' ?></div>
           <div class="stat-meta">Sisa kertas token</div>
         </div>
       </div>

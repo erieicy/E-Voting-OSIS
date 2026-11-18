@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/config/database.php';
 require_admin();
 
 $pengaturan = get_pengaturan($pdo);
+$isUnlocked = ((int)$pengaturan['tampilkan_hasil'] === 1);
 $message    = $_SESSION['flash_token_msg'] ?? '';
 $error      = $_SESSION['flash_token_err'] ?? '';
 unset($_SESSION['flash_token_msg'], $_SESSION['flash_token_err']);
@@ -243,7 +244,8 @@ function render_token_footer(
     int $countBelum,
     string $statusFilter,
     string $searchQuery,
-    string $csrfToken
+    string $csrfToken,
+    bool $showStatusCounts = true
 ): string {
     if ($totalPages <= 1 && $countBelum <= 0) {
         return '';
@@ -323,9 +325,9 @@ function render_token_footer(
           <button
             type="submit"
             class="btn btn-sm btn-danger js-confirm"
-            data-confirm="Hapus seluruh <?= $countBelum ?> token yang belum terpakai?"
+            data-confirm="<?= $showStatusCounts ? 'Hapus seluruh ' . (int)$countBelum . ' token yang belum terpakai?' : 'Hapus seluruh token yang belum terpakai?' ?>"
           >
-            Hapus Semua Token Belum Dipakai
+            Hapus Semua Token Belum Dipakai<?= $showStatusCounts ? ' (' . number_format($countBelum, 0, ',', '.') . ')' : '' ?>
           </button>
         </form>
       <?php endif; ?>
@@ -359,10 +361,10 @@ if (isset($_GET['ajax'])) {
         'tema'            => $pengaturan['tema'],
         'current_page'    => $currentPage,
         'count_all_fmt'   => number_format($countAll, 0, ',', '.'),
-        'count_belum_fmt' => number_format($countBelum, 0, ',', '.'),
-        'count_sudah_fmt' => number_format($countSudah, 0, ',', '.'),
+        'count_belum_fmt' => $isUnlocked ? number_format($countBelum, 0, ',', '.') : '-',
+        'count_sudah_fmt' => $isUnlocked ? number_format($countSudah, 0, ',', '.') : '-',
         'rows_html'       => render_token_rows($tokenList, $offset, $activeCsrf, $statusFilter, $searchQuery, $currentPage),
-        'footer_html'     => render_token_footer($currentPage, $totalPages, $countBelum, $statusFilter, $searchQuery, $activeCsrf),
+        'footer_html'     => render_token_footer($currentPage, $totalPages, $countBelum, $statusFilter, $searchQuery, $activeCsrf, $isUnlocked),
     ]);
     exit;
 }
@@ -412,7 +414,7 @@ if (isset($_GET['ajax'])) {
         </div>
         <div class="filter-bar">
           <a href="cetak_token.php?status=0" target="_blank" class="btn btn-primary">
-            <span>Cetak Token Belum Dipakai (<span id="token-print-count"><?= number_format($countBelum, 0, ',', '.') ?></span>)</span>
+            <span>Cetak Token Belum Dipakai (<span id="token-print-count"><?= $isUnlocked ? number_format($countBelum, 0, ',', '.') : '&mdash;' ?></span>)</span>
           </a>
         </div>
       </div>
@@ -460,10 +462,10 @@ if (isset($_GET['ajax'])) {
               <span>Semua (<span id="count-all"><?= number_format($countAll, 0, ',', '.') ?></span>)</span>
             </a>
             <a href="token.php?status=0&amp;q=<?= urlencode($searchQuery) ?>" class="btn btn-sm <?= $statusFilter === '0' ? 'btn-primary' : '' ?>">
-              <span>Belum Dipakai (<span id="count-belum"><?= number_format($countBelum, 0, ',', '.') ?></span>)</span>
+              <span>Belum Dipakai (<span id="count-belum"><?= $isUnlocked ? number_format($countBelum, 0, ',', '.') : '&mdash;' ?></span>)</span>
             </a>
             <a href="token.php?status=1&amp;q=<?= urlencode($searchQuery) ?>" class="btn btn-sm <?= $statusFilter === '1' ? 'btn-primary' : '' ?>">
-              <span>Sudah Dipakai (<span id="count-sudah"><?= number_format($countSudah, 0, ',', '.') ?></span>)</span>
+              <span>Sudah Dipakai (<span id="count-sudah"><?= $isUnlocked ? number_format($countSudah, 0, ',', '.') : '&mdash;' ?></span>)</span>
             </a>
           </div>
 
@@ -505,7 +507,7 @@ if (isset($_GET['ajax'])) {
         </div>
 
         <div id="token-table-footer-wrap">
-          <?= render_token_footer($currentPage, $totalPages, $countBelum, $statusFilter, $searchQuery, $activeCsrf) ?>
+          <?= render_token_footer($currentPage, $totalPages, $countBelum, $statusFilter, $searchQuery, $activeCsrf, $isUnlocked) ?>
         </div>
       </div>
     </main>

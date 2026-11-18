@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/config/database.php';
 require_admin();
 
 $pengaturan = get_pengaturan($pdo);
+$isUnlocked = ((int)$pengaturan['tampilkan_hasil'] === 1);
 
 // Statistik Token
 $tokenStats    = get_token_stats($pdo);
@@ -65,9 +66,9 @@ if (isset($_GET['ajax'])) {
     header('Cache-Control: no-store, no-cache, must-revalidate');
     echo json_encode([
         'total_token_fmt'     => number_format($totalToken, 0, ',', '.'),
-        'token_terpakai_fmt'  => number_format($tokenTerpakai, 0, ',', '.'),
-        'partisipasi_fmt'     => 'Partisipasi: ' . $partisipasi . '%',
-        'token_sisa_fmt'      => number_format($tokenSisa, 0, ',', '.'),
+        'token_terpakai_fmt'  => $isUnlocked ? number_format($tokenTerpakai, 0, ',', '.') : '-',
+        'partisipasi_fmt'     => $isUnlocked ? 'Partisipasi: ' . $partisipasi . '%' : 'Partisipasi: -',
+        'token_sisa_fmt'      => $isUnlocked ? number_format($tokenSisa, 0, ',', '.') : '-',
         'status_voting'       => $pengaturan['status_voting'],
         'tema'                => $pengaturan['tema'],
         'jumlah_kandidat_fmt' => 'Jumlah Kandidat: ' . count($kandidatList) . ' Paslon',
@@ -140,9 +141,10 @@ function detect_lan_ips(): array {
 $lanIps    = detect_lan_ips();
 $primaryIp = $lanIps[0];
 
-$scheme   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$port     = (int)($_SERVER['SERVER_PORT'] ?? 80);
-$portPart = ($port !== 80 && $port !== 443) ? ':' . $port : '';
+// Link kartu selalu HTTPS; akses non-loopback memang dipaksa HTTPS oleh config.
+$scheme    = 'https';
+$httpsPort = request_is_https() ? (int)($_SERVER['SERVER_PORT'] ?? 443) : 443;
+$portPart  = $httpsPort !== 443 ? ':' . $httpsPort : '';
 $basePath = rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
 
 $voterLanUrl = $scheme . '://' . $primaryIp . $portPart . $basePath . '/';
@@ -207,12 +209,12 @@ $adminLanUrl = $scheme . '://' . $primaryIp . $portPart . $basePath . '/admin/';
         </div>
         <div class="stat-card">
           <div class="stat-label">Suara Masuk (Terpakai)</div>
-          <div class="stat-value" id="stat-token-terpakai"><?= number_format($tokenTerpakai, 0, ',', '.') ?></div>
-          <div class="stat-meta" id="stat-partisipasi">Partisipasi: <?= e((string)$partisipasi) ?>%</div>
+          <div class="stat-value" id="stat-token-terpakai"><?= $isUnlocked ? number_format($tokenTerpakai, 0, ',', '.') : '&mdash;' ?></div>
+          <div class="stat-meta" id="stat-partisipasi"><?= $isUnlocked ? 'Partisipasi: ' . e((string)$partisipasi) . '%' : 'Partisipasi: &mdash;' ?></div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Sisa Token Belum Dipakai</div>
-          <div class="stat-value" id="stat-token-sisa"><?= number_format($tokenSisa, 0, ',', '.') ?></div>
+          <div class="stat-value" id="stat-token-sisa"><?= $isUnlocked ? number_format($tokenSisa, 0, ',', '.') : '&mdash;' ?></div>
           <div class="stat-meta">Masih sah untuk memilih</div>
         </div>
         <div class="stat-card">
